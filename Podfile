@@ -22,12 +22,12 @@ target 'Clipy' do
   pod 'SwiftLint'
   pod 'SwiftGen'
 
-  target 'ClipyTests' do
-    inherit! :search_paths
+  # target 'ClipyTests' do
+  #   inherit! :search_paths
 
-    pod 'Quick'
-    pod 'Nimble'
+  #   pod 'Quick'
+  #   pod 'Nimble'
 
-  end
+  # end
 
 end

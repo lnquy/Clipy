@@ -11,15 +11,15 @@
 //
 
 import Cocoa
-import Sparkle
+import Sparkle // Auto update
 import RxCocoa
-import RxSwift
-import LoginServiceKit
-import Magnet
-import Screeen
+import RxSwift // Reactive programming
+import LoginServiceKit // Auto start on startup (login item)
+import Magnet // Hotkey
+import Screeen // Listen on screenshot events
 import RxScreeen
-import RealmSwift
-import LetsMove
+import RealmSwift // Database
+import LetsMove // Sample moving app to Applications on installation
 
 @NSApplicationMain
 class AppDelegate: NSObject, NSMenuItemValidation {
@@ -45,7 +45,7 @@ class AppDelegate: NSObject, NSMenuItemValidation {
     }
 
     // MARK: - Class Methods
-    static func storeTypesDictinary() -> [String: NSNumber] {
+    static func storeTypesDictionary() -> [String: NSNumber] {
         var storeTypes = [String: NSNumber]()
         CPYClipData.availableTypesString.forEach { storeTypes[$0] = NSNumber(value: true) }
         return storeTypes
