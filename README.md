@@ -25,10 +25,31 @@ __Distribution Site__ : <https://clipy-app.com>
 * Swift 5.3
 
 ### How to Build
-0. Move to the project root directory
-1. `bundle install --path=vendor/bundle && bundle exec pod install`
-2. Open `Clipy.xcworkspace` on Xcode.
-3. build.
+~~0. Move to the project root directory~~
+~~1. `bundle install --path=vendor/bundle && bundle exec pod install`~~
+~~2. Open `Clipy.xcworkspace` on Xcode.~~
+~~3. build.~~
+
+```shell
+# Install rbenv (https://github.com/rbenv/rbenv)
+$ brew install rbenv
+$ rbenv init   # Restart the terminal
+$ rbenv install 3.4.2   # Install ruby 3.4.2
+
+# Clone code
+$ git clone https://github.com/lnquy/Clipy
+$ cd Clipy
+$ rbenv local 3.4.2
+$ gem install bundler -v 2.6.5
+$ bundle install --path=vendor/bundle
+$ bundle exec pod install
+$ open -a xcode Clipy.xcworkspace
+
+# [Update]: WIP
+$ gem update --system
+$ bundle update --verbose
+$ bundle exec pod install --repo-update --verbose
+```
 
 ### Contributing
 1. Fork it ( https://github.com/Clipy/Clipy/fork )
