@@ -1,0 +1,101 @@
+@startuml
+
+package "App" {
+    class AppDelegate {
+        + func applicationDidFinishLaunching()
+    }
+
+    class AppEnvironment {
+        + static var current: Environment
+        + static func push(environment: Environment)
+        + static func popLast() -> Environment?
+        + static func replaceCurrent(environment: Environment)
+    }
+
+    class Environment {
+        + let clipService: ClipService
+        + let hotKeyService: HotKeyService
+        + let dataCleanService: DataCleanService
+        + let pasteService: PasteService
+        + let excludeAppService: ExcludeAppService
+        + let accessibilityService: AccessibilityService
+        + let menuManager: MenuManager
+        + let defaults: UserDefaults
+    }
+}
+
+package "Services" {
+    class ClipService {
+        + func startMonitoring()
+        + func create()
+        + func clearAll()
+        + func delete(with clip: CPYClip)
+    }
+
+    class HotKeyService {
+        + func setupDefaultHotKeys()
+    }
+
+    class DataCleanService {
+        + func cleanDatas()
+    }
+
+    class ExcludeAppService {
+        + func frontProcessIsExcludedApplication() -> Bool
+        + func copiedProcessIsExcludedApplications(pasteboard: NSPasteboard) -> Bool
+    }
+
+    class PasteService {
+        + func paste()
+    }
+
+    class AccessibilityService {
+        + func requestAccessibilityPermissions()
+    }
+}
+
+package "Managers" {
+    class MenuManager {
+        + func setup()
+        + func createClipMenu()
+        + func popUpMenu(type: MenuType)
+        + func updateClipMenuOnSearch(searchText: String)
+    }
+}
+
+package "Models" {
+    class CPYClip {
+        + var title: String
+        + var dataHash: String
+        + var primaryType: String
+        + var thumbnailPath: String
+        + var isColorCode: Bool
+    }
+
+    class CPYClipData {
+        + init(pasteboard: NSPasteboard, types: [NSPasteboard.PasteboardType])
+        + init(image: NSImage)
+    }
+}
+
+AppDelegate --> AppEnvironment : initializes
+AppEnvironment --> Environment : provides current environment
+Environment --> ClipService : access service
+Environment --> HotKeyService : access service
+Environment --> DataCleanService : access service
+Environment --> PasteService : access service
+Environment --> ExcludeAppService : access service
+Environment --> AccessibilityService : access service
+Environment --> MenuManager : access manager
+
+ClipService --> NSPasteboard : polls changeCount
+ClipService --> CPYClipData : creates clip data
+ClipService --> CPYClip : saves metadata to Realm
+Realm --> MenuManager : notifies on new record
+MenuManager --> Realm : observes CPYClip objects
+MenuManager --> MenuManager : rebuilds context menu
+
+HotKeyService --> MenuManager : triggers popUpMenu on hotkey event
+MenuManager --> NSMenu : shows menu on screen
+
+@enduml

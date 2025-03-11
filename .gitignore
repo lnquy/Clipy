@@ -156,3 +156,4 @@ build-iPhoneSimulator/
 # Experiment new IDEs
 .idea/
 .vscode/
+.DS_Store

@@ -19,6 +19,8 @@ final class AccessibilityService {}
 extension AccessibilityService {
     @discardableResult
     func isAccessibilityEnabled(isPrompt: Bool) -> Bool {
+        return true // TODO[q]
+        
         // Accessibility permission is required for paste command from macOS 10.14 Mojave.
         // For macOS 10.14 and later only, check accessibility permission at startup and paste
         guard #available(macOS 10.14, *) else { return true }

@@ -42,13 +42,12 @@ $ cd Clipy
 $ rbenv local 3.4.2
 $ gem install bundler -v 2.6.5
 $ bundle install --path=vendor/bundle
-$ bundle exec pod install
+$ bundle exec pod install --repo-update
 $ open -a xcode Clipy.xcworkspace
 
 # [Update]: WIP
 $ gem update --system
 $ bundle update --verbose
-$ bundle exec pod install --repo-update --verbose
 ```
 
 ### Contributing
