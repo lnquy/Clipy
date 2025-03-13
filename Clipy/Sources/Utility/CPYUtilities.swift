@@ -30,7 +30,7 @@ final class CPYUtilities {
         /* General */
         defaultValues.updateValue(NSNumber(value: false), forKey: Constants.UserDefaults.loginItem)
         defaultValues.updateValue(NSNumber(value: false), forKey: Constants.UserDefaults.suppressAlertForLoginItem)
-        defaultValues.updateValue(NSNumber(value: 30), forKey: Constants.UserDefaults.maxHistorySize)
+        defaultValues.updateValue(NSNumber(value: 50), forKey: Constants.UserDefaults.maxHistorySize)
         defaultValues.updateValue(NSNumber(value: 1), forKey: Constants.UserDefaults.showStatusItem)
         defaultValues.updateValue(AppDelegate.storeTypesDictionary(), forKey: Constants.UserDefaults.storeTypes)
         defaultValues.updateValue(NSNumber(value: true), forKey: Constants.UserDefaults.inputPasteCommand)
@@ -39,8 +39,8 @@ final class CPYUtilities {
 
         /* Menu */
         defaultValues.updateValue(NSNumber(value: 16), forKey: Constants.UserDefaults.menuIconSize)
-        defaultValues.updateValue(NSNumber(value: 20), forKey: Constants.UserDefaults.maxMenuItemTitleLength)
-        defaultValues.updateValue(NSNumber(value: 0), forKey: Constants.UserDefaults.numberOfItemsPlaceInline)
+        defaultValues.updateValue(NSNumber(value: 50), forKey: Constants.UserDefaults.maxMenuItemTitleLength)
+        defaultValues.updateValue(NSNumber(value: 10), forKey: Constants.UserDefaults.numberOfItemsPlaceInline)
         defaultValues.updateValue(NSNumber(value: 10), forKey: Constants.UserDefaults.numberOfItemsPlaceInsideFolder)
         defaultValues.updateValue(NSNumber(value: false), forKey: Constants.UserDefaults.menuItemsTitleStartWithZero)
         defaultValues.updateValue(NSNumber(value: true), forKey: Constants.UserDefaults.showAlertBeforeClearHistory)

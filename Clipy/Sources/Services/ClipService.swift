@@ -39,7 +39,7 @@ final class ClipService {
             .filter { $0 != $1 }
             .subscribe(onNext: { [weak self] changeCount, _ in
                 self?.cachedChangeCount.accept(changeCount)
-                self?.create()
+                self?.captureClipboardChange()
             })
             .disposed(by: disposeBag)
 
@@ -88,7 +88,7 @@ final class ClipService {
 
 // MARK: - Create Clip
 extension ClipService {
-    fileprivate func create() {
+    fileprivate func captureClipboardChange() {
         lock.lock()
         defer { lock.unlock() }
 
@@ -96,8 +96,8 @@ extension ClipService {
         if !storeTypes.values.contains(NSNumber(value: true)) { return }
         // Pasteboard types
         let pasteboard = NSPasteboard.general
-        let types = self.types(with: pasteboard)
-        if types.isEmpty { return }
+        let captureableTypes = self.getCaptureableTypesFromPasteboard(with: pasteboard)
+        if captureableTypes.isEmpty { return }
 
         // Excluded application
         guard
@@ -111,12 +111,12 @@ extension ClipService {
         else { return }
 
         // Create data
-        let data = CPYClipData(pasteboard: pasteboard, types: types)
+        let data = CPYClipData(pasteboard: pasteboard, captureableTypes: captureableTypes)
 
         save(with: data)
     }
 
-    func create(with image: NSImage) {
+    func captureImage(with image: NSImage) {
         lock.lock()
         defer { lock.unlock() }
 
@@ -127,19 +127,17 @@ extension ClipService {
 
     fileprivate func save(with data: CPYClipData) {
         let realm = try! Realm()
-        // Copy already copied history
-        let isCopySameHistory = AppEnvironment.current.defaults.bool(
-            forKey: Constants.UserDefaults.copySameHistory)
 
-        let existingClipInRealm = realm.object(
+        if let existingClipInRealm = realm.object(
             ofType: CPYClip.self, forPrimaryKey: "\(data.hash)")
-        if existingClipInRealm != nil, !isCopySameHistory { return }
-        // Don't save invalidated clip
-        if let clip = realm.object(
-            ofType: CPYClip.self, forPrimaryKey: "\(data.hash)"),
-            clip.isInvalidated
         {
-            return
+            // Don't save invalidated clip
+            if existingClipInRealm.isInvalidated { return }
+
+            // Copy already copied history
+            let isCopySameHistory = AppEnvironment.current.defaults.bool(
+                forKey: Constants.UserDefaults.copySameHistory)
+            if !isCopySameHistory { return }
         }
 
         // Don't save empty string history
@@ -149,17 +147,15 @@ extension ClipService {
         let isOverwriteHistory = AppEnvironment.current.defaults.bool(
             forKey: Constants.UserDefaults.overwriteSameHistory)
         let savedHash =
-            (isOverwriteHistory) ? data.hash : Int(arc4random() % 1_000_000)
+        (isOverwriteHistory) ? data.hash : Int.random(in: 0..<1_000_000)
 
         // Saved time and path
         let unixTime = Int(Date().timeIntervalSince1970)
-        let savedPath =
-            CPYUtilities.applicationSupportFolder()
-            + "/\(NSUUID().uuidString).data"
+        let savedPath = CPYUtilities.applicationSupportFolder() + "/\(NSUUID().uuidString).data"
         // Create Realm object
         let clip = CPYClip()
         clip.dataPath = savedPath
-        clip.title = data.stringValue[0...10_000]
+        clip.title = data.stringValue[0...10_000]  // TODO[q]: This may fail search on long text, but is it acceptable?
         clip.dataHash = "\(savedHash)"
         clip.updateTime = unixTime
         clip.primaryType = data.primaryType?.rawValue ?? ""
@@ -177,21 +173,24 @@ extension ClipService {
                 clip.thumbnailPath = "\(unixTime)"
                 clip.isColorCode = true
             }
+
             // Save Realm and .data file
             let dispatchRealm = try! Realm()
-            if CPYUtilities.prepareSaveToPath(
-                CPYUtilities.applicationSupportFolder())
-            {
-                if NSKeyedArchiver.archiveRootObject(data, toFile: savedPath) {
-                    dispatchRealm.transaction {
-                        dispatchRealm.add(clip, update: .all)
-                    }
-                }
+            do {
+                let data = try NSKeyedArchiver.archivedData(
+                    withRootObject: data, requiringSecureCoding: false)
+                try data.write(to: URL(string: savedPath)!)
+            } catch {
+                CPYUtilities.sendCustomLog(with: "failed to save CPYClipData to storage: \(error)")
+                return
+            }
+            dispatchRealm.transaction {
+                dispatchRealm.add(clip, update: .all)
             }
         }
     }
 
-    private func types(with pasteboard: NSPasteboard) -> [NSPasteboard
+    private func getCaptureableTypesFromPasteboard(with pasteboard: NSPasteboard) -> [NSPasteboard
         .PasteboardType]
     {
         let types = pasteboard.types?.filter { canSave(with: $0) } ?? []

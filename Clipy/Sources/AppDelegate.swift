@@ -11,15 +11,15 @@
 //
 
 import Cocoa
-import Sparkle // Auto update
+import LetsMove  // Sample moving app to Applications on installation
+import LoginServiceKit  // Auto start on startup (login item)
+import Magnet  // Hotkey
+import RealmSwift  // Database
 import RxCocoa
-import RxSwift // Reactive programming
-import LoginServiceKit // Auto start on startup (login item)
-import Magnet // Hotkey
-import Screeen // Listen on screenshot events
 import RxScreeen
-import RealmSwift // Database
-import LetsMove // Sample moving app to Applications on installation
+import RxSwift  // Reactive programming
+import Screeen  // Listen on screenshot events
+import Sparkle  // Auto update
 
 @NSApplicationMain
 class AppDelegate: NSObject, NSMenuItemValidation {
@@ -67,7 +67,8 @@ class AppDelegate: NSObject, NSMenuItemValidation {
     }
 
     @objc func clearAllHistory() {
-        let isShowAlert = AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.showAlertBeforeClearHistory)
+        let isShowAlert = AppEnvironment.current.defaults.bool(
+            forKey: Constants.UserDefaults.showAlertBeforeClearHistory)
         if isShowAlert {
             let alert = NSAlert()
             alert.messageText = L10n.clearHistory
@@ -82,7 +83,8 @@ class AppDelegate: NSObject, NSMenuItemValidation {
             if result != NSApplication.ModalResponse.alertFirstButtonReturn { return }
 
             if alert.suppressionButton?.state == NSControl.StateValue.on {
-                AppEnvironment.current.defaults.set(false, forKey: Constants.UserDefaults.showAlertBeforeClearHistory)
+                AppEnvironment.current.defaults.set(
+                    false, forKey: Constants.UserDefaults.showAlertBeforeClearHistory)
             }
             AppEnvironment.current.defaults.synchronize()
         }
@@ -146,13 +148,14 @@ class AppDelegate: NSObject, NSMenuItemValidation {
         }
         // Do not show this message again
         if alert.suppressionButton?.state == NSControl.StateValue.on {
-            AppEnvironment.current.defaults.set(true, forKey: Constants.UserDefaults.suppressAlertForLoginItem)
+            AppEnvironment.current.defaults.set(
+                true, forKey: Constants.UserDefaults.suppressAlertForLoginItem)
             AppEnvironment.current.defaults.synchronize()
         }
     }
 
     private func toggleAddingToLoginItems(_ isEnable: Bool) {
-        return // TODO[q]
+        return  // TODO[q]
 
         let appPath = Bundle.main.bundlePath
         LoginServiceKit.removeLoginItems(at: appPath)
@@ -161,7 +164,8 @@ class AppDelegate: NSObject, NSMenuItemValidation {
     }
 
     private func reflectLoginItemState() {
-        let isInLoginItems = AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.loginItem)
+        let isInLoginItems = AppEnvironment.current.defaults.bool(
+            forKey: Constants.UserDefaults.loginItem)
         toggleAddingToLoginItems(isInLoginItems)
     }
 }
@@ -176,19 +180,25 @@ extension AppDelegate: NSApplicationDelegate {
         CPYUtilities.registerUserDefaultKeys()
         // SDKs
         CPYUtilities.initSDKs()
+        if !CPYUtilities.prepareSaveToPath(CPYUtilities.applicationSupportFolder()) { return }
         // Check Accessibility Permission
         AppEnvironment.current.accessibilityService.isAccessibilityEnabled(isPrompt: true)
 
         // Show Login Item
-        if !AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.loginItem) && !AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.suppressAlertForLoginItem) {
+        if !AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.loginItem)
+            && !AppEnvironment.current.defaults.bool(
+                forKey: Constants.UserDefaults.suppressAlertForLoginItem)
+        {
             promptToAddLoginItems()
         }
 
         // Sparkle
         let updater = SUUpdater.shared()
         updater?.feedURL = Constants.Application.appcastURL
-        updater?.automaticallyChecksForUpdates = AppEnvironment.current.defaults.bool(forKey: Constants.Update.enableAutomaticCheck)
-        updater?.updateCheckInterval = TimeInterval(AppEnvironment.current.defaults.integer(forKey: Constants.Update.checkInterval))
+        updater?.automaticallyChecksForUpdates = AppEnvironment.current.defaults.bool(
+            forKey: Constants.Update.enableAutomaticCheck)
+        updater?.updateCheckInterval = TimeInterval(
+            AppEnvironment.current.defaults.integer(forKey: Constants.Update.checkInterval))
 
         // Binding Events
         bind()
@@ -212,19 +222,24 @@ extension AppDelegate: NSApplicationDelegate {
 }
 
 // MARK: - Bind
-private extension AppDelegate {
-    func bind() {
+extension AppDelegate {
+    fileprivate func bind() {
         // Login Item
-        AppEnvironment.current.defaults.rx.observe(Bool.self, Constants.UserDefaults.loginItem, retainSelf: false)
-            .compactMap { $0 }
-            .subscribe(onNext: { [weak self] _ in
-                self?.reflectLoginItemState()
-            })
-            .disposed(by: disposeBag)
+        AppEnvironment.current.defaults.rx.observe(
+            Bool.self, Constants.UserDefaults.loginItem, retainSelf: false
+        )
+        .compactMap { $0 }
+        .subscribe(onNext: { [weak self] _ in
+            self?.reflectLoginItemState()
+        })
+        .disposed(by: disposeBag)
+
         // Observe Screenshot
-        let observerScreenshot = AppEnvironment.current.defaults.rx.observe(Bool.self, Constants.Beta.observerScreenshot, retainSelf: false)
-            .compactMap { $0 }
-            .share(replay: 1)
+        let observerScreenshot = AppEnvironment.current.defaults.rx.observe(
+            Bool.self, Constants.Beta.observerScreenshot, retainSelf: false
+        )
+        .compactMap { $0 }
+        .share(replay: 1)
         observerScreenshot
             .subscribe(onNext: { [weak self] enabled in
                 self?.screenshotObserver.isEnabled = enabled
@@ -232,15 +247,19 @@ private extension AppDelegate {
             .disposed(by: disposeBag)
         observerScreenshot
             .filter { $0 }
-            .take(1)
-            .subscribe(onNext: { [weak self] _ in
-                self?.screenshotObserver.start()
+            .subscribe(onNext: { [weak self] enabled in
+                if enabled {
+                    self?.screenshotObserver.start()
+                } else {
+                    self?.screenshotObserver.stop()
+                }
             })
             .disposed(by: disposeBag)
+
         // Observe Screenshot image
         screenshotObserver.rx.addedImage
             .subscribe(onNext: { image in
-                AppEnvironment.current.clipService.create(with: image)
+                AppEnvironment.current.clipService.captureImage(with: image)
             })
             .disposed(by: disposeBag)
     }

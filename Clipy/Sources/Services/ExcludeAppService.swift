@@ -78,6 +78,7 @@ extension ExcludeAppService {
 }
 
 // MARK: - Special Applications
+// TODO[q]: Allow these processes to be configured later
 extension ExcludeAppService {
     /**
      *  Responding to applications that have special handling for protection of passwords etc.

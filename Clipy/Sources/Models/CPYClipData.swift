@@ -83,6 +83,7 @@ final class CPYClipData: NSObject {
         return NSImage.create(with: color, size: NSSize(width: 20, height: 20))
     }
 
+    // TODO[q]: Improve this
     static var availableTypes: [NSPasteboard.PasteboardType] {
         return [.deprecatedString,
                 .deprecatedRTF,
@@ -108,9 +109,10 @@ final class CPYClipData: NSObject {
     }
 
     // MARK: - Init
-    init(pasteboard: NSPasteboard, types: [NSPasteboard.PasteboardType]) {
+    init(pasteboard: NSPasteboard, captureableTypes: [NSPasteboard.PasteboardType]) {
         super.init()
-        self.types = types
+        self.types = captureableTypes
+        
         types.forEach { type in
             switch type {
             case .deprecatedString:
