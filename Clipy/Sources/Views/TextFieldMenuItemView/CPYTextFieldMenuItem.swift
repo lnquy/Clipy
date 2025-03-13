@@ -30,15 +30,16 @@ class CPYTextFieldMenuItem: NSMenuItem {
 
     private func setupSearchTextField() {
         searchTextField = NSTextField()
-        //        searchTextField.isSelectable = true
-        //        searchTextField.isEditable = true
+        // searchTextField.cell = CPYTextFieldCell()
+        searchTextField.isSelectable = true
+        searchTextField.isEditable = true
         searchTextField.placeholderString = "Type to search..."
         searchTextField.target = self
         searchTextField.delegate = self
         searchTextField.translatesAutoresizingMaskIntoConstraints = false
-        //        searchTextField.refusesFirstResponder = true
-        //        searchTextField.resignFirstResponder()
-        // searchTextField.becomeFirstResponder() // Force caret blinker
+        // searchTextField.refusesFirstResponder = true
+        // searchTextField.resignFirstResponder()
+        searchTextField.becomeFirstResponder()  // Force caret blinker
         self.view = searchTextField
 
         // Add constraints to make the text field full width and line height
@@ -54,8 +55,8 @@ class CPYTextFieldMenuItem: NSMenuItem {
                 searchTextField.heightAnchor
                     .constraint(greaterThanOrEqualToConstant: 35),
             ])
-            searchTextField.usesSingleLineMode = false
-            searchTextField.maximumNumberOfLines = 5
+            searchTextField.usesSingleLineMode = true
+            searchTextField.maximumNumberOfLines = 1
         }
     }
 }
@@ -65,6 +66,7 @@ extension CPYTextFieldMenuItem: NSTextFieldDelegate {
         _ control: NSControl, textView: NSTextView,
         doCommandBy commandSelector: Selector
     ) -> Bool {
+        // TODO[q]
         switch commandSelector {
         case #selector(NSResponder.moveDown(_:)):
             // Try to loose focus on search bar, may remove later
@@ -79,15 +81,12 @@ extension CPYTextFieldMenuItem: NSTextFieldDelegate {
                 return true
             }
         case #selector(NSResponder.moveUp(_:)):
-            // TODO[q]: No effect. Improve or remove this later
-            // print("UP")
             if let menu = self.menu, menu.numberOfItems > 2 {
                 let menuItem = menu.item(at: 2)
                 if let highligted = menuItem?.isHighlighted {
-                    // print("CHANGE FOCUS")
                     menuItem?.setAccessibilityFocused(false)
-                    searchTextField.refusesFirstResponder = false
                     searchTextField.setAccessibilityFocused(true)
+                    searchTextField.becomeFirstResponder()
                     return true
                 }
             }

@@ -215,7 +215,8 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		552057AC2D7ED1940093C96B /* TextFieldMenuItem */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = TextFieldMenuItem; sourceTree = "<group>"; };
+		5508F2EA2D8341A80067B58A /* MenuItemView */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = MenuItemView; sourceTree = "<group>"; };
+		552057AC2D7ED1940093C96B /* TextFieldMenuItemView */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = TextFieldMenuItemView; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -390,7 +391,8 @@
 		FA1DB4DB1DDCB49C007F95C8 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				552057AC2D7ED1940093C96B /* TextFieldMenuItem */,
+				5508F2EA2D8341A80067B58A /* MenuItemView */,
+				552057AC2D7ED1940093C96B /* TextFieldMenuItemView */,
 				FA1DB4DC1DDCB49C007F95C8 /* DesignableView */,
 				FA1DB4DF1DDCB49C007F95C8 /* SplitViews */,
 				FA1DB4E11DDCB49C007F95C8 /* TableViewCell */,
@@ -551,7 +553,8 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				552057AC2D7ED1940093C96B /* TextFieldMenuItem */,
+				5508F2EA2D8341A80067B58A /* MenuItemView */,
+				552057AC2D7ED1940093C96B /* TextFieldMenuItemView */,
 			);
 			name = Clipy;
 			productName = Clipy;

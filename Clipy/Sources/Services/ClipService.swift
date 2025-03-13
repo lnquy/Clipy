@@ -179,7 +179,7 @@ extension ClipService {
             do {
                 let data = try NSKeyedArchiver.archivedData(
                     withRootObject: data, requiringSecureCoding: false)
-                try data.write(to: URL(string: savedPath)!)
+                try data.write(to: URL(fileURLWithPath: savedPath))
             } catch {
                 CPYUtilities.sendCustomLog(with: "failed to save CPYClipData to storage: \(error)")
                 return

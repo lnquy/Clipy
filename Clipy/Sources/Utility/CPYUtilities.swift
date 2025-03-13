@@ -104,6 +104,7 @@ final class CPYUtilities {
     }
 
     static func sendCustomLog(with name: String) {
+        print("customLog: \(name)")
         guard AppEnvironment.current.defaults.bool(forKey: Constants.UserDefaults.collectCrashReport) else { return }
         // TODO: - Migrate Firebase Crashlytics
     }

@@ -19,6 +19,10 @@ import RxSwift
 final class MenuManager: NSObject {
 
     // MARK: - Properties
+    // Menu view
+    fileprivate var globalMenuView: NSMenu?
+    fileprivate var lastDisplayedMenuType: MenuType?
+
     // Menus
     fileprivate var clipMenu: NSMenu?
     fileprivate var historyMenu: NSMenu?
@@ -61,16 +65,17 @@ final class MenuManager: NSObject {
 // MARK: - Popup Menu
 extension MenuManager {
     func popUpMenu(_ type: MenuType) {
-        let menu: NSMenu?
         switch type {
         case .main:
-            menu = clipMenu
+            self.globalMenuView = buildMenuViewsOnFirstPaint(menuType: .main)
         case .history:
-            menu = historyMenu
+            self.globalMenuView = buildMenuViewsOnFirstPaint(menuType: .history)
         case .snippet:
-            menu = snippetMenu
+            self.globalMenuView = buildMenuViewsOnFirstPaint(menuType: .snippet)
         }
-        menu?.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+
+        self.lastDisplayedMenuType = type
+        self.globalMenuView!.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
     }
 
     func popUpSnippetFolder(_ folder: CPYFolder) {
@@ -98,18 +103,21 @@ extension MenuManager {
 extension MenuManager {
     fileprivate func bind() {
         // Realm Notification
-        clipToken = realm.objects(CPYClip.self)
-            .observe { [weak self] _ in
-                DispatchQueue.main.async { [weak self] in
-                    self?.createClipMenu()
-                }
-            }
-        snippetToken = realm.objects(CPYFolder.self)
-            .observe { [weak self] _ in
-                DispatchQueue.main.async { [weak self] in
-                    self?.createClipMenu()
-                }
-            }
+        // TODO[q]: Observe
+
+        //        clipToken = realm.objects(CPYClip.self)
+        //            .observe { [weak self] _ in
+        //                DispatchQueue.main.async { [weak self] in
+        //                    self?.createClipMenu()
+        //                }
+        //            }
+
+        //        snippetToken = realm.objects(CPYFolder.self)
+        //            .observe { [weak self] _ in
+        //                DispatchQueue.main.async { [weak self] in
+        //                    self?.createClipMenu()
+        //                }
+        //            }
 
         // Menu icon
         AppEnvironment.current.defaults.rx.observe(
@@ -121,28 +129,30 @@ extension MenuManager {
             self?.changeStatusItem(StatusType(rawValue: key) ?? .black)
         })
         .disposed(by: disposeBag)
-        // Sort clips
-        AppEnvironment.current.defaults.rx.observe(
-            Bool.self, Constants.UserDefaults.reorderClipsAfterPasting,
-            options: [.new], retainSelf: false
-        )
-        .compactMap { $0 }
-        .asDriver(onErrorDriveWith: .empty())
-        .drive(onNext: { [weak self] _ in
-            guard let wSelf = self else { return }
-            wSelf.createClipMenu()
-        })
-        .disposed(by: disposeBag)
-        // Edit snippets
-        notificationCenter.rx.notification(
-            Notification.Name(
-                rawValue: Constants.Notification.closeSnippetEditor)
-        )
-        .asDriver(onErrorDriveWith: .empty())
-        .drive(onNext: { [weak self] _ in
-            self?.createClipMenu()
-        })
-        .disposed(by: disposeBag)
+
+        //        // Sort clips
+        //        AppEnvironment.current.defaults.rx.observe(
+        //            Bool.self, Constants.UserDefaults.reorderClipsAfterPasting,
+        //            options: [.new], retainSelf: false
+        //        )
+        //        .compactMap { $0 }
+        //        .asDriver(onErrorDriveWith: .empty())
+        //        .drive(onNext: { [weak self] _ in
+        //            guard let wSelf = self else { return }
+        //            wSelf.createClipMenu()
+        //        })
+        //        .disposed(by: disposeBag)
+        //
+        //        // Edit snippets
+        //        notificationCenter.rx.notification(
+        //            Notification.Name(
+        //                rawValue: Constants.Notification.closeSnippetEditor)
+        //        )
+        //        .asDriver(onErrorDriveWith: .empty())
+        //        .drive(onNext: { [weak self] _ in
+        //            self?.createClipMenu()
+        //        })
+        //        .disposed(by: disposeBag)
 
         // Search updated
         notificationCenter.rx
@@ -153,7 +163,7 @@ extension MenuManager {
             .asDriver(onErrorDriveWith: .empty())
             .drive(onNext: { [weak self] noti in
                 if let searchText = noti.object as? String {
-                    self?.updateClipMenuOnSearch(searchText: searchText)
+                    self?.refreshMenuViewsOnSearch(searchText: searchText)
                 }
             })
             .disposed(by: disposeBag)
@@ -239,13 +249,16 @@ extension MenuManager {
                 options: [.new], retainSelf: false
             )
             .compactMap { $0 }.distinctUntilChanged().map { _ in })
-        Observable.merge(menuChangedObservables)
-            .throttle(.seconds(1), scheduler: MainScheduler.instance)
-            .asDriver(onErrorDriveWith: .empty())
-            .drive(onNext: { [weak self] in
-                self?.createClipMenu()
-            })
-            .disposed(by: disposeBag)
+
+        //        Observable.merge(menuChangedObservables)
+        //            .throttle(.seconds(1), scheduler: MainScheduler.instance)
+        //            .asDriver(onErrorDriveWith: .empty())
+        //            .drive(onNext: { [weak self] in
+        //                self?.createClipMenu()
+        //            })
+        //            .disposed(by: disposeBag)
+        
+        self.buildClipMenuViewForStatusItem() // TODO[q]
     }
 }
 
@@ -409,94 +422,6 @@ extension MenuManager {
 
         return titleString as String
     }
-
-    fileprivate func updateClipMenuOnSearch(searchText: String) {
-        // print("updateClipMenuOnSearch: \(searchText)")
-        if searchText.isEmpty {
-            createClipMenu()
-            clipMenu?.update()
-            return
-        }
-
-        // Loop though all items and remove all except the search bar
-        guard (clipMenu?.items) != nil else { return }
-        if let highlightItem = clipMenu?.highlightedItem {
-            highlightItem.isEnabled = false
-            clipMenu?.removeItem(highlightItem)
-            clipMenu?.update()  // Force removing the background highlight first
-        }
-        for item in clipMenu!.items {
-            if item is CPYTextFieldMenuItem {
-                continue
-            }
-            clipMenu?.removeItem(item)
-        }
-
-        //        historyMenu = NSMenu(title: Constants.Menu.history)
-        //        snippetMenu = NSMenu(title: Constants.Menu.snippet)
-
-        //        clipMenu?.addItem(
-        //            CPYTextFieldMenuItem(
-        //                title: "Search all",
-        //                action: nil,
-        //                keyEquivalent: ""
-        //            ))
-        //  historyMenu?.addItem(CPYTextFieldMenuItem(
-        //     title: "Search history",
-        //     action: nil,
-        //     keyEquivalent: ""
-        // ))
-        //  snippetMenu?.addItem(CPYTextFieldMenuItem(
-        //     title: "Search snippet",
-        //     action: nil,
-        //     keyEquivalent: ""
-        // ))
-
-        let ascending = !AppEnvironment.current.defaults.bool(
-            forKey: Constants.UserDefaults.reorderClipsAfterPasting)
-
-        let clipResults = realm.objects(CPYClip.self)
-            .filter("title contains '\(searchText)'")
-            .sorted(
-                byKeyPath: #keyPath(CPYClip.updateTime), ascending: ascending
-            )
-            .toArray(type: CPYClip.self, limit: 10)
-
-        addHistoryItems(clipMenu!, clipResults: clipResults)
-        //        addHistoryItems(historyMenu!, clipResults: clipResults)
-
-        //            addSnippetItems(clipMenu!, separateMenu: true)
-        //            addSnippetItems(snippetMenu!, separateMenu: false)
-
-        clipMenu?.addItem(NSMenuItem.separator())
-
-        if AppEnvironment.current.defaults.bool(
-            forKey: Constants.UserDefaults.addClearHistoryMenuItem)
-        {
-            clipMenu?.addItem(
-                NSMenuItem(
-                    title: L10n.clearHistory,
-                    action: #selector(AppDelegate.clearAllHistory)))
-        }
-
-        clipMenu?.addItem(
-            NSMenuItem(
-                title: L10n.editSnippets,
-                action: #selector(AppDelegate.showSnippetEditorWindow)))
-        clipMenu?.addItem(
-            NSMenuItem(
-                title: L10n.preferences,
-                action: #selector(AppDelegate.showPreferenceWindow)))
-        clipMenu?.addItem(NSMenuItem.separator())
-        clipMenu?.addItem(
-            NSMenuItem(
-                title: L10n.quitClipy, action: #selector(AppDelegate.terminate))
-        )
-
-        statusItem?.menu = clipMenu
-        clipMenu?.update()
-    }
-
 }
 
 // MARK: - Clips
@@ -735,11 +660,12 @@ extension MenuManager {
         image?.isTemplate = true
 
         statusItem = NSStatusBar.system.statusItem(withLength: -1)
-        statusItem?.image = image
+        statusItem?.button?.image = image
         statusItem?.highlightMode = true
-        statusItem?.toolTip =
-            "\(Constants.Application.name)\(Bundle.main.appVersion ?? "")"
-        statusItem?.menu = clipMenu
+        statusItem?.button?.toolTip =
+            "\(Constants.Application.name) \(Bundle.main.appVersion ?? "")"
+        // TODO[q]: Trigger rebuild on statusItem everytime clicked
+        statusItem?.button?.action = #selector(MenuManager.buildClipMenuViewForStatusItem)
     }
 
     fileprivate func removeStatusItem() {
@@ -748,6 +674,11 @@ extension MenuManager {
             statusItem = nil
         }
     }
+
+    @objc fileprivate func buildClipMenuViewForStatusItem() {
+        self.globalMenuView = self.buildClipMenuView()
+        self.statusItem?.menu = self.globalMenuView
+    }
 }
 
 // MARK: - Settings
@@ -755,5 +686,239 @@ extension MenuManager {
     fileprivate func firstIndexOfMenuItems() -> NSInteger {
         return AppEnvironment.current.defaults.bool(
             forKey: Constants.UserDefaults.menuItemsTitleStartWithZero) ? 0 : 1
+    }
+}
+
+// MARK: Build menu views on first popup
+extension MenuManager {
+    func buildMenuViewsOnFirstPaint(menuType: MenuType) -> NSMenu {
+        switch menuType {
+        case .main:
+            return buildClipMenuView()
+        case .history:
+            return buildHistoryMenuView()
+        case .snippet:
+            return buildSnippetMenuView()
+        default:
+            return NSMenu()
+        }
+    }
+
+    func refreshMenuViewsOnSearch(searchText: String) {
+        switch self.lastDisplayedMenuType {
+        case .main:
+            self.refreshClipMenuOnSearch(searchText: searchText)
+        case .history:
+                self.refreshHistoryMenuOnSearch(searchText: searchText)
+        case .snippet:
+                self.refreshSnippetMenuOnSearch(searchText: searchText)
+        default:
+            return
+        }
+    }
+}
+
+// MARK: Main menu (Clip)
+extension MenuManager {
+    fileprivate func buildClipMenuView() -> NSMenu {
+        let menu = NSMenu(title: Constants.Application.name)
+
+        // Search box
+        menu.addItem(
+            CPYTextFieldMenuItem(
+                title: "Search",
+                action: nil,
+                keyEquivalent: ""
+            )
+        )
+
+        // Histories
+        let maxHistorySize = AppEnvironment.current.defaults.integer(
+            forKey: Constants.UserDefaults.maxHistorySize)
+        let ascending = !AppEnvironment.current.defaults.bool(
+            forKey: Constants.UserDefaults.reorderClipsAfterPasting)
+        let clipResults = realm.objects(CPYClip.self)
+            .sorted(
+                byKeyPath: #keyPath(CPYClip.updateTime), ascending: ascending
+            )
+            .toArray(type: CPYClip.self, limit: maxHistorySize)
+
+        addHistoryItems(menu, clipResults: clipResults)
+        addSnippetItems(menu, separateMenu: true)
+        addSettingsMenuItems(menu, separateMenu: true)
+
+        return menu
+    }
+
+    fileprivate func refreshClipMenuOnSearch(searchText: String) {
+        guard let menu = self.globalMenuView else { return }
+
+        // Loop though all items and remove all except the search bar
+        if let highlightItem = menu.highlightedItem {
+            highlightItem.isEnabled = false
+            self.globalMenuView?.removeItem(highlightItem)
+            self.globalMenuView?.update()  // Force removing the background highlight first
+        }
+        for item in menu.items {
+            if item is CPYTextFieldMenuItem {
+                continue
+            }
+            menu.removeItem(item)
+        }
+
+        let maxHistorySize = AppEnvironment.current.defaults.integer(
+            forKey: Constants.UserDefaults.maxHistorySize)
+        let ascending = !AppEnvironment.current.defaults.bool(
+            forKey: Constants.UserDefaults.reorderClipsAfterPasting)
+
+        var clipResults: [CPYClip] = []
+        if searchText.isEmpty {
+            clipResults = realm.objects(CPYClip.self)
+                .sorted(
+                    byKeyPath: #keyPath(CPYClip.updateTime), ascending: ascending
+                )
+                .toArray(type: CPYClip.self, limit: maxHistorySize)
+        } else {
+            clipResults = realm.objects(CPYClip.self)
+                .where { $0.title.contains(searchText, options: .caseInsensitive) }
+                .sorted(
+                    byKeyPath: #keyPath(CPYClip.updateTime), ascending: ascending
+                )
+                .toArray(type: CPYClip.self, limit: 10)  // TODO[q]
+        }
+
+        addHistoryItems(menu, clipResults: clipResults)
+        addSnippetItems(menu, separateMenu: true)
+        addSettingsMenuItems(menu, separateMenu: true)
+
+        self.globalMenuView = menu
+        self.globalMenuView?.update()
+    }
+
+    fileprivate func addSettingsMenuItems(_ parentMenu: NSMenu, separateMenu: Bool) {
+        if separateMenu {
+            parentMenu.addItem(NSMenuItem.separator())
+        }
+
+        if AppEnvironment.current.defaults.bool(
+            forKey: Constants.UserDefaults.addClearHistoryMenuItem)
+        {
+            parentMenu.addItem(
+                NSMenuItem(
+                    title: L10n.clearHistory,
+                    action: #selector(AppDelegate.clearAllHistory)))
+        }
+
+        parentMenu.addItem(
+            NSMenuItem(
+                title: L10n.editSnippets,
+                action: #selector(AppDelegate.showSnippetEditorWindow)))
+        parentMenu.addItem(
+            NSMenuItem(
+                title: L10n.preferences,
+                action: #selector(AppDelegate.showPreferenceWindow)))
+        parentMenu.addItem(NSMenuItem.separator())
+        parentMenu.addItem(
+            NSMenuItem(
+                title: L10n.quitClipy, action: #selector(AppDelegate.terminate))
+        )
+    }
+}
+
+// MARK: History menu
+extension MenuManager {
+    fileprivate func buildHistoryMenuView() -> NSMenu {
+        let menu = NSMenu(title: Constants.Application.name)
+
+        // Search box
+        menu.addItem(
+            CPYTextFieldMenuItem(
+                title: "Search",
+                action: nil,
+                keyEquivalent: ""
+            )
+        )
+
+        // Histories
+        let maxHistorySize = AppEnvironment.current.defaults.integer(
+            forKey: Constants.UserDefaults.maxHistorySize)
+        let ascending = !AppEnvironment.current.defaults.bool(
+            forKey: Constants.UserDefaults.reorderClipsAfterPasting)
+        let clipResults = realm.objects(CPYClip.self)
+            .sorted(
+                byKeyPath: #keyPath(CPYClip.updateTime), ascending: ascending
+            )
+            .toArray(type: CPYClip.self, limit: maxHistorySize)
+        addHistoryItems(menu, clipResults: clipResults)
+
+        return menu
+    }
+
+    fileprivate func refreshHistoryMenuOnSearch(searchText: String) {
+        guard let menu = self.globalMenuView else { return }
+
+        // Loop though all items and remove all except the search bar
+        if let highlightItem = menu.highlightedItem {
+            highlightItem.isEnabled = false
+            self.globalMenuView?.removeItem(highlightItem)
+            self.globalMenuView?.update()  // Force removing the background highlight first
+        }
+        for item in menu.items {
+            if item is CPYTextFieldMenuItem {
+                continue
+            }
+            menu.removeItem(item)
+        }
+
+        let maxHistorySize = AppEnvironment.current.defaults.integer(
+            forKey: Constants.UserDefaults.maxHistorySize)
+        let ascending = !AppEnvironment.current.defaults.bool(
+            forKey: Constants.UserDefaults.reorderClipsAfterPasting)
+
+        var clipResults: [CPYClip] = []
+        if searchText.isEmpty {
+            clipResults = realm.objects(CPYClip.self)
+                .sorted(
+                    byKeyPath: #keyPath(CPYClip.updateTime), ascending: ascending
+                )
+                .toArray(type: CPYClip.self, limit: maxHistorySize)
+        } else {
+            clipResults = realm.objects(CPYClip.self)
+                .where { $0.title.contains(searchText, options: .caseInsensitive) }
+                .sorted(
+                    byKeyPath: #keyPath(CPYClip.updateTime), ascending: ascending
+                )
+                .toArray(type: CPYClip.self, limit: 10)  // TODO[q]
+        }
+
+        addHistoryItems(menu, clipResults: clipResults)
+
+        self.globalMenuView = menu
+        self.globalMenuView?.update()
+    }
+}
+
+// MARK: Snippet menu
+extension MenuManager {
+    fileprivate func buildSnippetMenuView() -> NSMenu {
+        let menu = NSMenu(title: Constants.Application.name)
+
+        // Search box
+        menu.addItem(
+            CPYTextFieldMenuItem(
+                title: "Search",
+                action: nil,
+                keyEquivalent: ""
+            )
+        )
+
+        // Snippets
+        addSnippetItems(menu, separateMenu: true)
+
+        return menu
+    }
+    
+    fileprivate func refreshSnippetMenuOnSearch(searchText: String) {
+        // TODO[q]: Search snippets
     }
 }
